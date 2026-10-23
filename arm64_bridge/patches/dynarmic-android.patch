@@ -1,0 +1,62 @@
+diff --git a/src/dynarmic/backend/arm64/a32_address_space.cpp b/src/dynarmic/backend/arm64/a32_address_space.cpp
+--- a/src/dynarmic/backend/arm64/a32_address_space.cpp
++++ b/src/dynarmic/backend/arm64/a32_address_space.cpp
+@@ -176,7 +176,9 @@
+         Optimization::DeadCodeElimination(ir_block);
+     }
+     Optimization::IdentityRemovalPass(ir_block);
++#ifndef NDEBUG
+     Optimization::VerificationPass(ir_block);
++#endif
+ 
+     return ir_block;
+ }
+@@ -362,7 +364,9 @@
+ 
+     prelude_info.end_of_prelude = code.offset();
+ 
+-    mem.invalidate_all();
++    // Only the prelude contains emitted instructions at construction time.
++    // Every later block is invalidated individually by AddressSpace::Emit.
++    mem.invalidate(mem.ptr(), static_cast<size_t>(prelude_info.end_of_prelude));
+     ProtectCodeMemory();
+ }
+ 
+diff --git a/src/dynarmic/backend/arm64/address_space.cpp b/src/dynarmic/backend/arm64/address_space.cpp
+--- a/src/dynarmic/backend/arm64/address_space.cpp
++++ b/src/dynarmic/backend/arm64/address_space.cpp
+@@ -4,6 +4,10 @@
+  */
+ 
+ #include <cstdio>
++
++#if defined(__ANDROID__) && !defined(ASPHALT7_FINAL_SILENT)
++#include <android/log.h>
++#endif
+ 
+ #include <mcl/bit_cast.hpp>
+ 
+@@ -98,9 +102,11 @@
+ }
+ 
+ void AddressSpace::DumpDisassembly() const {
++#if !defined(ASPHALT7_FINAL_SILENT)
+     for (u32* ptr = mem.ptr(); ptr < code.xptr<u32*>(); ptr++) {
+         std::printf("%s", Common::DisassembleAArch64(*ptr, mcl::bit_cast<u64>(ptr)).c_str());
+     }
++#endif
+ }
+ 
+ size_t AddressSpace::GetRemainingSize() {
+@@ -109,6 +115,11 @@
+ 
+ EmittedBlockInfo AddressSpace::Emit(IR::Block block) {
+     if (GetRemainingSize() < 1024 * 1024) {
++#if defined(__ANDROID__) && !defined(ASPHALT7_FINAL_SILENT)
++        __android_log_print(ANDROID_LOG_WARN, "Arm32Bridge",
++                            "Dynarmic code cache exhausted: used=%zu capacity=%zu blocks=%zu; clearing",
++                            code_cache_size - GetRemainingSize(), code_cache_size, block_entries.size());
++#endif
+         ClearCache();
+     }
+ 

@@ -1,0 +1,6 @@
+[submodule "arm64_bridge/third_party/dynarmic"]
+	path = arm64_bridge/third_party/dynarmic
+	url = https://github.com/azahar-emu/dynarmic.git
+[submodule "arm64_bridge/third_party/boost"]
+	path = arm64_bridge/third_party/boost
+	url = https://github.com/boostorg/boost.git
